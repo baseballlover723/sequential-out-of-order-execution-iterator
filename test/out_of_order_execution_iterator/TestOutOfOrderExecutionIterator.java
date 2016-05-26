@@ -9,7 +9,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class TestOutOfOrderExecutionIterator {
-	private static final int LIST_LENGTH = 40;
+	private static final int LIST_LENGTH = 10;
 	private static final int MAX_NUMBER_OF_THREADS = 4;
 	private static final int NUMBER_OF_ITERATIONS = 1;
 	private static final int SLEEP_TIME = 10;

@@ -11,10 +11,10 @@ import org.junit.Test;
 public class TestOutOfOrderExecutionIterator {
 	private static final int LIST_LENGTH = 10;
 	private static final int MAX_NUMBER_OF_THREADS = 4;
-	private static final int NUMBER_OF_ITERATIONS = 1;
-	private static final int SLEEP_MIN = 3;
-	private static final int SLEEP_MAX = 10;
-	
+	private static final int NUMBER_OF_ITERATIONS = 100;
+	private static final int SLEEP_MIN = 0;
+	private static final int SLEEP_MAX = 5;
+
 	private ArrayList<Integer> startingCollection;
 	private OutOfOrderExecutionIterator<Integer> iter;
 	private Random random1;
@@ -25,26 +25,26 @@ public class TestOutOfOrderExecutionIterator {
 		long seed = new Random().nextLong();
 		this.random1 = new Random(seed);
 		this.random2 = new Random(seed);
-		
+
 		this.startingCollection = new ArrayList<Integer>();
 		for (int i = 0; i < LIST_LENGTH; i++) {
 			this.startingCollection.add(i);
 		}
 		this.iter = new OutOfOrderExecutionIterator<Integer>(MAX_NUMBER_OF_THREADS, this.startingCollection);
 	}
-	
+
 	public void stressTest(Tester test) {
-		for (int i=0;i<NUMBER_OF_ITERATIONS;i++) {
+		for (int i = 0; i < NUMBER_OF_ITERATIONS; i++) {
 			test.test();
 		}
 	}
-	
+
 	private void randomSleep(Random random) {
 		try {
 			Thread.sleep(random.nextInt(SLEEP_MAX - SLEEP_MIN) + SLEEP_MIN);
 		} catch (Exception e) {
 		}
-		
+
 	}
 
 	@Test
@@ -57,11 +57,11 @@ public class TestOutOfOrderExecutionIterator {
 			}, (Integer result) -> {
 				newCollection.add(result);
 			});
-			
+
 			assertEquals(this.startingCollection, newCollection);
 		});
 	}
-	
+
 	@Test
 	public void testStartsExecutionInOrder() {
 		stressTest(() -> {
@@ -71,11 +71,11 @@ public class TestOutOfOrderExecutionIterator {
 				return obj;
 			}, (Integer result) -> {
 			});
-			
+
 			assertEquals(this.startingCollection, newCollection);
 		});
 	}
-	
+
 	@Test
 	public void testIsFasterThanSequential() {
 		stressTest(() -> {
@@ -86,18 +86,18 @@ public class TestOutOfOrderExecutionIterator {
 			}, (Integer result) -> {
 			});
 			double parallelTime = System.nanoTime() - start + 1_000_000;
-			
+
 			start = System.nanoTime();
-			this.startingCollection.forEach((obj)->{
+			this.startingCollection.forEach((obj) -> {
 				randomSleep(this.random2);
 			});
 			double sequentialTime = System.nanoTime() - start;
-			
+
 			String errorString = "took " + parallelTime + " compared to " + sequentialTime;
 			assertTrue(errorString, parallelTime <= sequentialTime);
 		});
 	}
-	
+
 	@Test
 	public void randomTest() {
 		assertEquals(this.random1.nextInt(100), this.random2.nextInt(100));

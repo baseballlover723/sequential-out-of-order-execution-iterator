@@ -12,8 +12,8 @@ public class OutOfOrderExecutionIterator<T> {
 	}
 
 	public void forEachExecuteOutOfOrder(Executer<T> execute, Method<T> callback) {
-		// for (int i = 0; i < this.collection.size(); i++) {
-		for (int i = this.collection.size() - 1; i >= 0; i--) {
+		 for (int i = 0; i < this.collection.size(); i++) {
+//		for (int i = this.collection.size() - 1; i >= 0; i--) {
 			T obj = this.collection.get(i);
 			T result = execute.execute(obj);
 			callback.execute(result);

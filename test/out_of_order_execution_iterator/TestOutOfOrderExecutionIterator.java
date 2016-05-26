@@ -12,13 +12,20 @@ public class TestOutOfOrderExecutionIterator {
 	private static final int LIST_LENGTH = 10;
 	private static final int MAX_NUMBER_OF_THREADS = 4;
 	private static final int NUMBER_OF_ITERATIONS = 1;
-	private static final int SLEEP_TIME = 10;
+	private static final int SLEEP_MIN = 3;
+	private static final int SLEEP_MAX = 10;
 	
 	private ArrayList<Integer> startingCollection;
 	private OutOfOrderExecutionIterator<Integer> iter;
+	private Random random1;
+	private Random random2;
 
 	@Before
 	public void setup() {
+		long seed = new Random().nextLong();
+		this.random1 = new Random(seed);
+		this.random2 = new Random(seed);
+		
 		this.startingCollection = new ArrayList<Integer>();
 		for (int i = 0; i < LIST_LENGTH; i++) {
 			this.startingCollection.add(i);
@@ -32,15 +39,20 @@ public class TestOutOfOrderExecutionIterator {
 		}
 	}
 	
+	private void randomSleep(Random random) {
+		try {
+			Thread.sleep(random.nextInt(SLEEP_MAX - SLEEP_MIN) + SLEEP_MIN);
+		} catch (Exception e) {
+		}
+		
+	}
+
 	@Test
 	public void testFinishesInOrder() {
 		stressTest(() -> {
 			ArrayList<Integer> newCollection = new ArrayList<Integer>();
 			this.iter.forEachExecuteOutOfOrder((Integer obj) -> {
-				try {
-					Thread.sleep(new Random().nextInt(SLEEP_TIME));
-				} catch (Exception e) {
-				}
+				randomSleep(this.random1);
 				return obj;
 			}, (Integer result) -> {
 				newCollection.add(result);

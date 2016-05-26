@@ -1,6 +1,6 @@
 package out_of_order_execution_iterator;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 import java.util.ArrayList;
 import java.util.Random;
@@ -74,6 +74,36 @@ public class TestOutOfOrderExecutionIterator {
 			
 			assertEquals(this.startingCollection, newCollection);
 		});
+	}
+	
+	@Test
+	public void testIsFasterThanSequential() {
+		stressTest(() -> {
+			double start = System.nanoTime();
+			this.iter.forEachExecuteOutOfOrder((Integer obj) -> {
+				randomSleep(this.random1);
+				return obj;
+			}, (Integer result) -> {
+			});
+			double parallelTime = System.nanoTime() - start + 1_000_000;
+			
+			start = System.nanoTime();
+			this.startingCollection.forEach((obj)->{
+				randomSleep(this.random2);
+			});
+			double sequentialTime = System.nanoTime() - start;
+			
+			String errorString = "took " + parallelTime + " compared to " + sequentialTime;
+			assertTrue(errorString, parallelTime <= sequentialTime);
+		});
+	}
+	
+	@Test
+	public void randomTest() {
+		assertEquals(this.random1.nextInt(100), this.random2.nextInt(100));
+		assertEquals(this.random1.nextInt(100), this.random2.nextInt(100));
+		assertEquals(this.random1.nextInt(100), this.random2.nextInt(100));
+		assertEquals(this.random1.nextInt(100), this.random2.nextInt(100));
 	}
 
 }

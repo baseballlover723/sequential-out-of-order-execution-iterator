@@ -1,6 +1,8 @@
 package out_of_order_execution_iterator;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Random;
@@ -9,11 +11,10 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class TestOutOfOrderExecutionIterator {
-	private static final int LIST_LENGTH = 10;
-	private static final int MAX_NUMBER_OF_THREADS = 4;
-	private static final int NUMBER_OF_ITERATIONS = 100;
-	private static final int SLEEP_MIN = 0;
-	private static final int SLEEP_MAX = 5;
+	private static final int LIST_LENGTH = 50;
+	private static final int MAX_NUMBER_OF_THREADS = 8;
+	private static final int NUMBER_OF_ITERATIONS = 200;
+	private static final int SLEEP_MAX = 500_000; // ns
 
 	private ArrayList<Integer> startingCollection;
 	private OutOfOrderExecutionIterator<Integer> iter;
@@ -41,10 +42,15 @@ public class TestOutOfOrderExecutionIterator {
 
 	private void randomSleep(Random random) {
 		try {
-			Thread.sleep(random.nextInt(SLEEP_MAX - SLEEP_MIN) + SLEEP_MIN);
+			Thread.sleep(0, random.nextInt(SLEEP_MAX));
 		} catch (Exception e) {
 		}
 
+	}
+
+	@Test(expected = IllegalArgumentException.class)
+	public void testMustHaveAtLeast1Thread() {
+		new OutOfOrderExecutionIterator<Integer>(0, this.startingCollection);
 	}
 
 	@Test
@@ -63,40 +69,101 @@ public class TestOutOfOrderExecutionIterator {
 	}
 
 	@Test
-	public void testStartsExecutionInOrder() {
+	public void testExecutesEveryElementOncePossiblyOutOfOrder() {
 		stressTest(() -> {
+			int sum = 0;
+			for (Integer i : this.startingCollection) {
+				sum += i;
+			}
 			ArrayList<Integer> newCollection = new ArrayList<Integer>();
 			this.iter.forEachExecuteOutOfOrder((Integer obj) -> {
-				newCollection.add(obj);
+				randomSleep(this.random1);
+				synchronized (newCollection) {
+					newCollection.add(obj);
+				}
 				return obj;
 			}, (Integer result) -> {
 			});
 
-			assertEquals(this.startingCollection, newCollection);
+			assertNotEquals(this.startingCollection, newCollection);
+			int newSum = 0;
+			for (Integer i : newCollection) {
+				newSum += i;
+			}
+			assertEquals(sum, newSum);
 		});
 	}
 
 	@Test
 	public void testIsFasterThanSequential() {
+		long[] maxParallel = { 0 };
+		long[] totalParallel = { 0 };
+		long[] maxSequential = { 0 };
+		long[] totalSequential = { 0 };
 		stressTest(() -> {
-			double start = System.nanoTime();
+			long start = System.nanoTime();
 			this.iter.forEachExecuteOutOfOrder((Integer obj) -> {
 				randomSleep(this.random1);
 				return obj;
 			}, (Integer result) -> {
 			});
-			double parallelTime = System.nanoTime() - start + 1_000_000; //add 1 ms
+			long parallelTime = System.nanoTime() - start;
 
 			start = System.nanoTime();
 			this.startingCollection.forEach((obj) -> {
 				randomSleep(this.random2);
 			});
-			double sequentialTime = System.nanoTime() - start;
+			long sequentialTime = System.nanoTime() - start;
+
+			if (parallelTime > maxParallel[0]) {
+				maxParallel[0] = parallelTime;
+			}
+			if (sequentialTime > maxSequential[0]) {
+				maxSequential[0] = sequentialTime;
+			}
+			totalParallel[0] += parallelTime;
+			totalSequential[0] += sequentialTime;
 
 			String errorString = "took " + parallelTime + " compared to " + sequentialTime;
 			assertTrue(errorString, parallelTime <= sequentialTime);
 		});
+		double avgParallel = totalParallel[0] / (double) NUMBER_OF_ITERATIONS;
+		double avgSequential = totalSequential[0] / (double) NUMBER_OF_ITERATIONS;
+		System.out.println("maxParallel: " + getTimeUnits(maxParallel[0]));
+		System.out.println("maxSequential: " + getTimeUnits(maxSequential[0]));
+		System.out.println();
+		System.out.println("avgParallel: " + getTimeUnits(avgParallel));
+		System.out.println("avgSequential: " + getTimeUnits(avgSequential));
 	}
+
+	@Test
+	public void testDoesntUseMoreThenMaxThreads() {
+		int currentThreads = Thread.activeCount();
+		int absoluteMaxThreads = currentThreads + MAX_NUMBER_OF_THREADS + 1;
+		boolean[] runningTests = { true };
+		new Thread(() -> {
+			stressTest(() -> {
+				ArrayList<Integer> newCollection = new ArrayList<Integer>();
+				this.iter.forEachExecuteOutOfOrder((Integer obj) -> {
+					randomSleep(this.random1);
+					return obj;
+				}, (Integer result) -> {
+					newCollection.add(result);
+				});
+			});
+			runningTests[0] = false;
+		}).start();
+		while (runningTests[0]) {
+			if (Thread.activeCount() >= absoluteMaxThreads) {
+				System.out.println("error");
+			}
+			assertTrue(Thread.activeCount() < absoluteMaxThreads);
+		}
+	}
+	
+	// TODO add a couple for cases for invalid thread counts?
+	// TODO test exepctions
+	// TODO figure out why changing the bounds on line 103 and 38 dont pass mutation testing
 
 	@Test
 	public void randomTest() {
@@ -106,4 +173,32 @@ public class TestOutOfOrderExecutionIterator {
 		assertEquals(this.random1.nextInt(100), this.random2.nextInt(100));
 	}
 
+	public static String getTimeUnits(long time) {
+		return getTimeUnits((double) time);
+	}
+
+	/**
+	 * returns a string that gives the given time difference in easily read time
+	 * units
+	 * 
+	 * @param time
+	 * @return
+	 */
+	public static String getTimeUnits(double time) {
+		double newTime = time;
+
+		newTime /= 1_000_000.0;
+		if (newTime < 1000) {
+			return String.format("%f MiliSeconds", newTime);
+		}
+		newTime /= 1000.0;
+		if (newTime < 300) {
+			return String.format("%f Seconds", newTime);
+		}
+		newTime /= 60.0;
+		if (newTime < 180) {
+			return String.format("%f Minutes", newTime);
+		}
+		return String.format("%f Hours", newTime / 60.0);
+	}
 }

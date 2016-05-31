@@ -85,7 +85,7 @@ public class TestOutOfOrderExecutionIterator {
 				return obj;
 			}, (Integer result) -> {
 			});
-			double parallelTime = System.nanoTime() - start + 1_000_000;
+			double parallelTime = System.nanoTime() - start + 1_000_000; //add 1 ms
 
 			start = System.nanoTime();
 			this.startingCollection.forEach((obj) -> {

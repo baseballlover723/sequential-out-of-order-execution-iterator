@@ -1,18 +1,16 @@
 package out_of_order_execution_iterator;
 
 public class IndexResult<T> implements Comparable<IndexResult<T>>{
-	private int index;
+	private final Index index;
 	private T result;
 
-	public IndexResult(int index, T result) {
-		if (index < 0) {
-			throw new IllegalArgumentException("Can't have a negative index");
-		}
-		this.index = index;
+	public IndexResult(Index index, T result) {
+		this.index = new Index(index);
+		this.index.lock();
 		this.result = result;
 	}
 	
-	public int getIndex() {
+	public Index getIndex() {
 		return this.index;
 	}
 	
@@ -24,6 +22,6 @@ public class IndexResult<T> implements Comparable<IndexResult<T>>{
 	@SuppressWarnings("rawtypes")
 	@Override
 	public int compareTo(IndexResult o) {
-		return Integer.compare(this.index, o.getIndex());
+		return this.index.compareTo(o.getIndex());
 	}
 }
